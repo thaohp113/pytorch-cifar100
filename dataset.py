@@ -1,63 +1,45 @@
-""" train and test dataset
-
-author baiyu
-"""
 import os
-import sys
-import pickle
-
-from skimage import io
-import matplotlib.pyplot as plt
-import numpy
+import numpy as np
 import torch
 from torch.utils.data import Dataset
+# from skimage import io
+from PIL import Image
+import torchvision
+# import matplotlib.pyplot as plt
 
-class CIFAR100Train(Dataset):
-    """cifar100 test dataset, derived from
-    torch.utils.data.DataSet
-    """
-
-    def __init__(self, path, transform=None):
-        #if transform is given, we transoform data using
-        with open(os.path.join(path, 'train'), 'rb') as cifar100:
-            self.data = pickle.load(cifar100, encoding='bytes')
+class CustomDataset(Dataset):
+    def __init__(self, root_dir, transform=None):
+        """
+        Args:
+            root_dir (string): Directory with all the images and labels.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        self.root_dir = root_dir
         self.transform = transform
+        self.image_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(root_dir) for f in filenames if 'png' in f]
 
     def __len__(self):
-        return len(self.data['fine_labels'.encode()])
+        return len(self.image_files)
 
     def __getitem__(self, index):
-        label = self.data['fine_labels'.encode()][index]
-        r = self.data['data'.encode()][index, :1024].reshape(32, 32)
-        g = self.data['data'.encode()][index, 1024:2048].reshape(32, 32)
-        b = self.data['data'.encode()][index, 2048:].reshape(32, 32)
-        image = numpy.dstack((r, g, b))
+        img_name = self.image_files[index]
+        label = int(img_name.split('/')[-2])
+        image = Image.open(img_name)
+
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
 
         if self.transform:
             image = self.transform(image)
+
         return label, image
 
-class CIFAR100Test(Dataset):
-    """cifar100 test dataset, derived from
-    torch.utils.data.DataSet
-    """
+train_dataset = CustomDataset(root_dir='data/etl_952_singlechar_size_64/952_train')
+test_dataset = CustomDataset(root_dir='data/etl_952_singlechar_size_64/952_test')
 
-    def __init__(self, path, transform=None):
-        with open(os.path.join(path, 'test'), 'rb') as cifar100:
-            self.data = pickle.load(cifar100, encoding='bytes')
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.data['data'.encode()])
-
-    def __getitem__(self, index):
-        label = self.data['fine_labels'.encode()][index]
-        r = self.data['data'.encode()][index, :1024].reshape(32, 32)
-        g = self.data['data'.encode()][index, 1024:2048].reshape(32, 32)
-        b = self.data['data'.encode()][index, 2048:].reshape(32, 32)
-        image = numpy.dstack((r, g, b))
-
-        if self.transform:
-            image = self.transform(image)
-        return label, image
-
+if __name__ == "__main__":
+    print(train_dataset[2])
+    print(len(train_dataset))
+    label, image = train_dataset[2]
+    print(f"Label: {label}, Image shape: {image.shape}")
+    print(len(image))
