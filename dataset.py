@@ -34,12 +34,12 @@ class CustomDataset(Dataset):
 
         return label, image
 
-train_dataset = CustomDataset(root_dir='data/etl_952_singlechar_size_64/952_train')
-test_dataset = CustomDataset(root_dir='data/etl_952_singlechar_size_64/952_test')
+# train_dataset = CustomDataset(root_dir='data/etl_952_singlechar_size_64/952_train')
+# test_dataset = CustomDataset(root_dir='data/etl_952_singlechar_size_64/952_test')
 
-if __name__ == "__main__":
-    print(train_dataset[2])
-    print(len(train_dataset))
-    label, image = train_dataset[2]
-    print(f"Label: {label}, Image shape: {image.shape}")
-    print(len(image))
+# if __name__ == "__main__":
+#     print(train_dataset[2])
+#     print(len(train_dataset))
+#     label, image = train_dataset[2]
+#     print(f"Label: {label}, Image shape: {image.shape}")
+#     print(len(image))

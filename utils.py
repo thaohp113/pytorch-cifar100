@@ -183,8 +183,6 @@ def get_training_dataloader(path, batch_size=16, num_workers=2, shuffle=True):
     # print(custom_training)
     custom_training_loader = DataLoader(
         custom_training, shuffle=shuffle, num_workers=num_workers, batch_size=batch_size)
-    print(custom_training_loader)
-    print(len(custom_training_loader))
 
     return custom_training_loader
 

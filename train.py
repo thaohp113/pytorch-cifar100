@@ -31,7 +31,7 @@ def train(epoch):
     start = time.time()
     net.train()
     for batch_index, (labels, images) in enumerate(etl952_training_loader):
-        print(images.shape)
+        # print(images.shape)
         labels = torch.LongTensor(list(labels))
         
         if args.gpu and torch.cuda.is_available():
@@ -45,7 +45,7 @@ def train(epoch):
         optimizer.zero_grad()
         outputs = net(images)
         # # Print the dimensions of outputs and labels
-        print(f"outputs shape: {outputs.shape}")
+        # print(f"outputs shape: {outputs.shape}")
         # print(f"labels shape: {labels[0]}")
         
         loss = loss_function(outputs, labels)
@@ -93,7 +93,8 @@ def eval_training(epoch=0, tb=True):
     test_loss = 0.0 # cost function error
     correct = 0.0
 
-    for (images, labels) in etl952_test_loader:
+    for (labels, images) in etl952_test_loader:
+        labels = torch.LongTensor(list(labels))
 
         if args.gpu:
             images = images.cuda()
@@ -131,16 +132,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-net', type=str, required=True, help='net type')
     parser.add_argument('-gpu', action='store_true', default=False, help='use gpu or not')
-    parser.add_argument('-b', type=int, default=64, help='batch size for dataloader')
+    parser.add_argument('-b', type=int, default=128, help='batch size for dataloader')
     parser.add_argument('-warm', type=int, default=1, help='warm up training phase')
     parser.add_argument('-lr', type=float, default=0.1, help='initial learning rate')
     parser.add_argument('-resume', action='store_true', default=False, help='resume training')
     args = parser.parse_args()
 
     net = get_network(args)
+    print("Parameter numbers: {}".format(sum(p.numel() for p in net.parameters())))
+
 
     train_path = "data/etl_952_singlechar_size_64/952_train"
-    test_path = "data/etl_952_singlechar_size_64/952_val"
+    test_path = "data/etl_952_singlechar_size_64/952_test"
 
     #data preprocessing:
     etl952_training_loader = get_training_dataloader(
@@ -182,7 +185,7 @@ if __name__ == '__main__':
     #so the only way is to create a new tensorboard log
     writer = SummaryWriter(log_dir=os.path.join(
             settings.LOG_DIR, args.net, settings.TIME_NOW))
-    input_tensor = torch.Tensor(1, 3, 32, 32)
+    input_tensor = torch.Tensor(1, 3, 64, 64)
     if args.gpu and torch.cuda.is_available():
         input_tensor = input_tensor.cuda()
     else:
