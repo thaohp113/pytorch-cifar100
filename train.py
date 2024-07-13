@@ -142,8 +142,8 @@ if __name__ == '__main__':
     print("Parameter numbers: {}".format(sum(p.numel() for p in net.parameters())))
 
 
-    train_path = "data/etl_952_singlechar_size_64/952_train"
-    test_path = "data/etl_952_singlechar_size_64/952_test"
+    train_path = "/shared/data/etl_952_singlechar_size_64/952_train"
+    test_path = "/shared/data/etl_952_singlechar_size_64/952_test"
 
     #data preprocessing:
     etl952_training_loader = get_training_dataloader(

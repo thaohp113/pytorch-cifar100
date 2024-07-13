@@ -30,12 +30,12 @@ if __name__ == '__main__':
 
     net = get_network(args)
 
+    test_path = "/shared/data/etl_952_singlechar_size_64/952_val"
     etl952_test_loader = get_test_dataloader(
-        settings.CHINESE_TRAIN_MEAN,
-        settings.CHINESE_TRAIN_STD,
-        #settings.CIFAR100_PATH,
+        path=test_path,
         num_workers=4,
         batch_size=args.b,
+        shuffle=False
     )
 
     net.load_state_dict(torch.load(args.weights))
@@ -47,7 +47,8 @@ if __name__ == '__main__':
     total = 0
 
     with torch.no_grad():
-        for n_iter, (image, label) in enumerate(etl952_test_loader):
+        for n_iter, (label, image) in enumerate(etl952_test_loader):
+            label = torch.LongTensor(list(label))
             print("iteration: {}\ttotal {} iterations".format(n_iter + 1, len(etl952_test_loader)))
 
             if args.gpu:

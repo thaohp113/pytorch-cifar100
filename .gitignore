@@ -3,3 +3,5 @@ data
 checkpoint
 runs
 accuracies.txt
+log.txt
+log2.txt
