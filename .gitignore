@@ -4,7 +4,7 @@ checkpoint
 runs
 accuracies.txt
 log.txt
-log2.txt
-log3.txt
-log4.txt
-log5.txt
+log2 - model D (old).txt
+log3 - model B.txt
+log4 - model C.txt
+log6 - model D.txt
