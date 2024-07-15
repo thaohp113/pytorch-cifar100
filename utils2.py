@@ -2,6 +2,7 @@
 
 author baiyu
 """
+import csv
 import os
 import sys
 import re
@@ -14,7 +15,8 @@ from torch.optim.lr_scheduler import _LRScheduler
 import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-from dataset import CustomDataset
+
+from dataset import ETL952Dataset, ETL952EvalDataset
 
 
 def get_network(args):
@@ -93,6 +95,9 @@ def get_network(args):
     elif args.net == 'resnext50':
         from models.resnext import resnext50
         net = resnext50()
+    elif args.net == 'seresnext50':
+        from models.resnext import seresnext50
+        net = seresnext50()
     elif args.net == 'resnext101':
         from models.resnext import resnext101
         net = resnext101()
@@ -158,55 +163,79 @@ def get_network(args):
         print('the network name you have entered is not supported yet')
         sys.exit()
 
-    # Use GPU if available and requested
-    if args.gpu and torch.cuda.is_available():
+    if args.gpu: #use_gpu
         net = net.cuda()
-        print("Using GPU for model")
-    else:
-        net = net.cpu()
-        print("Using CPU for model")
-    
+
     return net
 
-def get_training_dataloader(root_dir, label_file, batch_size=16, num_workers=2, shuffle=True):
-    """ return training dataloader """
+def collate_data_function(batch):
+    images = [data[0] for data in batch]
+    images = torch.stack(images)
+
+    labels = [data[1] for data in batch]
+    labels = torch.LongTensor(labels)
+
+    cangjie_labels = [data[2] for data in batch]
+    cangjie_lengths = torch.tensor([t.shape[0] for t in cangjie_labels])
+    cangjie_labels = torch.nn.utils.rnn.pad_sequence(cangjie_labels, batch_first=True)
+
+    cangjie_raws = [data[3] for data in batch]
+
+    return images, labels, cangjie_labels, cangjie_lengths, cangjie_raws
+
+def get_training_dataloader(path, labels_path, batch_size=16, num_workers=2, shuffle=True):
+    """ return training dataloader
+    Args:
+        path: path to training python dataset
+        batch_size: dataloader batchsize
+        num_workers: dataloader num_works
+        shuffle: whether to shuffle
+    Returns: train_data_loader:torch dataloader object
+    """
     transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
+        #transforms.ToPILImage(),
+        transforms.RandomCrop(64, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(15),
         transforms.ToTensor(),
-        transforms.Normalize(0.5, 0.5)
+        transforms.Normalize((0.5), (0.5))
     ])
-
-    training_dataset = CustomDataset(root_dir=root_dir, label_file=label_file, transform=transform_train)
+    vocab = get_vocab()
+    cangjie_dict = get_cangjie_dict(labels_path)
+    etl952_training = ETL952Dataset(path, vocab, cangjie_dict, transform=transform_train)
     training_loader = DataLoader(
-        training_dataset,
-        shuffle=shuffle,
-        num_workers=num_workers,
+        etl952_training, 
+        shuffle=shuffle, 
+        num_workers=num_workers, 
         batch_size=batch_size,
-        collate_fn=None
+        collate_fn=collate_data_function,
     )
 
     return training_loader
 
+def get_test_dataloader(path, labels_path, batch_size=16, num_workers=2, shuffle=False):
+    """ return training dataloader
+    Args:
+        path: path to test python dataset
+        batch_size: dataloader batchsize
+        num_workers: dataloader num_works
+        shuffle: whether to shuffle
+    Returns: cifar100_test_loader:torch dataloader object
+    """
 
-def get_test_dataloader(root_dir, label_file, batch_size=16, num_workers=2, shuffle=False):
-    """ return test dataloader """
     transform_test = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(15),
         transforms.ToTensor(),
-        transforms.Normalize(0.5, 0.5)
+        transforms.Normalize((0.5), (0.5))
     ])
-
-    test_dataset = CustomDataset(root_dir=root_dir, label_file=label_file, transform=transform_test)
+    vocab = get_vocab()
+    cangjie_dict = get_cangjie_dict(labels_path)
+    etl952_test = ETL952Dataset(path, vocab, cangjie_dict, transform=transform_test)
     test_loader = DataLoader(
-        test_dataset,
+        etl952_test,
         shuffle=shuffle,
         num_workers=num_workers,
         batch_size=batch_size,
-        collate_fn=None
+        collate_fn=collate_data_function,
     )
 
     return test_loader
@@ -229,7 +258,6 @@ def compute_mean_std(cifar100_dataset):
     std = numpy.std(data_r), numpy.std(data_g), numpy.std(data_b)
 
     return mean, std
-
 
 class WarmUpLR(_LRScheduler):
     """warmup_training learning rate scheduler
@@ -307,35 +335,24 @@ def best_acc_weights(weights_folder):
     best_files = sorted(best_files, key=lambda w: int(re.search(regex_str, w).groups()[1]))
     return best_files[-1]
 
-def read_labels(label_file):
-    labels = {}
-    with open(label_file, 'r') as file:
-        reader = csv.reader(file, delimiter=' ')
-        next(reader, None)  # Skip the header
-        for line in reader:
-            label = int(line[0])
-            raw = line[1]
-            sequence = line[-1]
-            # Treat "zc" as a separate character
-            sequence = sequence.replace('zc', '/')
-            labels[label] = (raw, sequence)
-    
-    # Print the labels dictionary for debugging
-    # print("Labels dictionary:", labels)
-    
-    return labels
 
-def build_vocab(labels):
-    char_counter = Counter()
-    for label, (raw, sequence) in labels.items():
-        char_counter.update(sequence)
-    
-    vocab = {char: count for char, count in char_counter.items()}
-    
-    # Print the vocabulary for debugging
-    # print("Vocabulary:", vocab)
-    
+def get_vocab(): 
+    with open("cangjie_vocab.txt", "r") as f:
+        vocab = f.read().split("\n")[:-1]
     return vocab
+
+
+def get_cangjie_dict(path: str):
+    
+    reader = csv.reader(open(path), delimiter=" ")
+    next(reader, None)  # skip the headers
+
+    cangjie_dict = {
+        int(line[0]): line[-1].replace('zc', '-')
+        for line in reader
+    }
+    return cangjie_dict
+
 
 def decode_cangjie(t, length, raw=False):
         """Decode encoded texts back into strs.

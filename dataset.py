@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 from torchvision import transforms
 from collections import Counter
+# from utils import read_labels, build_vocab
 # import matplotlib.pyplot as plt
 
 def read_labels(label_file):
@@ -35,35 +36,27 @@ def build_vocab(labels):
     vocab = {char: count for char, count in char_counter.items()}
     
     # Print the vocabulary for debugging
-    print("Vocabulary:", vocab)
+    # print("Vocabulary:", vocab)
     
     return vocab
 
 
 class CustomDataset(Dataset):
     def __init__(self, root_dir, label_file, transform=None):
-        """
-        Args:
-            root_dir (string): Directory with all the images.
-            label_file (string): Path to the label file.
-            transform (callable, optional): Optional transform to be applied on a sample.
-        """
         self.root_dir = root_dir
         self.transform = transform
         self.image_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(root_dir) for f in filenames if 'png' in f]
         
-        # Read the label file into a dictionary
         self.labels = read_labels(label_file)
-        
-        # Build the vocabulary from the sequences
         self.vocab = build_vocab(self.labels)
+        self.max_seq_length = max(len(seq) for _, seq in self.labels.values())
 
     def __len__(self):
         return len(self.image_files)
 
     def __getitem__(self, index):
         img_name = self.image_files[index]
-        label = int(os.path.basename(os.path.dirname(img_name)))  # Extract the label from the parent directory name
+        label = int(os.path.basename(os.path.dirname(img_name)))
         image = Image.open(img_name)
 
         if image.mode != 'RGB':
@@ -73,27 +66,29 @@ class CustomDataset(Dataset):
             image = self.transform(image)
 
         raw, sequence = self.labels[label]
-        
-        # Tokenize the sequence using the vocabulary
         tokens = [self.vocab[char] for char in sequence]
-        sequence = torch.tensor(tokens, dtype=torch.long)
+        
+        # Pad sequence
+        padded_sequence = torch.zeros(self.max_seq_length, dtype=torch.long)
+        padded_sequence[:len(tokens)] = torch.tensor(tokens, dtype=torch.long)
+        
+        sequence_length = torch.tensor(len(tokens), dtype=torch.long)
 
-        return label, image, sequence, raw
+        return label, image, padded_sequence, sequence_length, raw
     
-# Example usage
-if __name__ == "__main__":
-    root_dir = '/shared/data/etl_952_singlechar_size_64/952_train'
-    label_file = '/shared/data/etl_952_singlechar_size_64/952_labels.txt'
+# # Example usage
+# if __name__ == "__main__":
+#     root_dir = '/shared/data/etl_952_singlechar_size_64/952_train'
+#     label_file = '/shared/data/etl_952_singlechar_size_64/952_labels.txt'
     
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+#     transform = transforms.Compose([
+#         transforms.Resize((224, 224)),
+#         transforms.ToTensor(),
+#         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+#     ])
     
-    dataset = CustomDataset(root_dir=root_dir, label_file=label_file, transform=transform)
+#     dataset = CustomDataset(root_dir=root_dir, label_file=label_file, transform=transform)
     
-    # Test a specific image by index
-    specific_index = 7000  # Change this to the index of the specific image you want to test
-    label, image, sequence_indices, raw = dataset[specific_index]
-    print(f"Label: {label}, Sequence Indices: {sequence_indices}, Raw: {raw}")
+#     specific_index = 7000
+#     label, image, sequence_indices, sequence_length, raw = dataset[specific_index]
+#     print(f"Label: {label}, Sequence Indices: {sequence_indices}, Sequence Length: {sequence_length}, Raw: {raw}")
