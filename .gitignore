@@ -8,6 +8,8 @@ log2 - model D (old).txt
 log3 - model B.txt
 log4 - model C.txt
 log6 - model D.txt
-utils2.py 
-train2.py 
-
+evalA.txt
+evalB.txt
+evalC.txt
+evalD.txt
+modelC.txt
